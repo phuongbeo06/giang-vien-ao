@@ -13,7 +13,7 @@
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Be Vietnam Pro","Segoe UI",system-ui,sans-serif}
-.wrap{max-width:1100px;margin:0 auto;padding:20px 16px 40px}
+.wrap{max-width:1500px;width:100%;margin:0 auto;padding:20px clamp(14px,2.2vw,32px) 40px}
 h1{font-size:1.5rem;margin:0 0 4px}
 .sub{color:var(--muted);margin:0 0 20px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px}
@@ -31,11 +31,11 @@ select{font:inherit;border:1px solid var(--line);background:var(--surface);color
 .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
 .msg{margin:8px 0 0;color:var(--muted);font-size:.92rem}
 .err{color:#c2410c}
-.player{display:grid;grid-template-columns:1fr 260px;gap:16px;align-items:start}
-@media (max-width:820px){.player{grid-template-columns:1fr}}
-.stage{display:grid;grid-template-columns:1fr 150px;gap:12px;align-items:end}
-@media (max-width:560px){.stage{grid-template-columns:1fr 100px}}
-.board{background:var(--board);color:var(--board-ink);border:8px solid #8a6a43;border-radius:12px;padding:20px 22px;min-height:290px;box-shadow:inset 0 0 30px rgba(0,0,0,.25)}
+.player{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:20px;align-items:start}
+@media (max-width:900px){.player{grid-template-columns:minmax(0,1fr)}.side{max-height:360px}}
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 135px;gap:14px;align-items:end}
+@media (max-width:560px){.stage{grid-template-columns:minmax(0,1fr) 88px}.board{padding:14px;border-width:5px;min-height:280px}.board h2{font-size:1.1rem}}
+.board{width:100%;min-width:0;background:var(--board);color:var(--board-ink);border:8px solid #8a6a43;border-radius:12px;padding:clamp(18px,2.2vw,30px);min-height:330px;box-shadow:inset 0 0 30px rgba(0,0,0,.25)}
 .board h2{margin:0 0 14px;font-size:1.3rem;color:var(--chalk);font-weight:600}
 .board ul{margin:0;padding-left:20px}
 .board li{margin:0 0 10px;opacity:0;transform:translateY(6px);transition:all .4s}
@@ -84,8 +84,8 @@ svg.m .fonly,svg.f .monly{display:none}
 
   <div id="up">
     <div class="card" style="margin-bottom:16px">
-      <label><b>Khóa API Anthropic</b><br><input id="key" type="password" placeholder="sk-ant-..." autocomplete="off" style="width:100%;margin-top:6px;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)"></label>
-      <p class="msg">Khóa chỉ lưu trong trình duyệt của bạn và gửi thẳng tới Anthropic để soạn bài giảng. Lấy khóa tại console.anthropic.com (có tính phí theo lượt dùng).</p>
+      <label><b>Khóa API Google Gemini</b><br><input id="key" type="password" placeholder="Dán Gemini API key vào đây" autocomplete="off" style="width:100%;margin-top:6px;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)"></label>
+      <p class="msg">Khóa được lưu trong trình duyệt này và gửi trực tiếp tới Google Gemini. Tạo key tại <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>. Có thể có hạn mức miễn phí; giới hạn và điều kiện tùy tài khoản/mô hình. Không chia sẻ file có chứa key.</p>
     </div>
     <label class="drop" id="drop">
       <input id="file" type="file" accept="application/pdf" hidden>
@@ -153,6 +153,11 @@ var $=function(id){return document.getElementById(id)};
 var lessons=[],cur={l:0,s:0},playing=false,token=0,sentIdx=0,sentences=[],sample=null,busy=false;
 var synth=window.speechSynthesis||null,voices=[];
 var CHUNK=9000,MAXCHUNK=10,docName="",sentStart=0,T={items:[],total:0},seekWas=false;
+/* Chuẩn hóa một số chữ viết tắt/thuật ngữ trước khi đưa cho giọng đọc của trình duyệt. */
+var speakTerms=[
+  [/\bAI\b/gi,"ây ai"],[/\bPDF\b/gi,"pi đi ép"],[/\bAPI\b/gi,"ây pi ai"],[/\bURL\b/gi,"u rờ eo"],[/\bHTML\b/gi,"ây ch ti em eo"],[/\bCSS\b/gi,"xi ét ét"],[/\bSQL\b/gi,"ét kiu eo"],[/\bHTTP\b/gi,"ây ch ti ti pi"],[/\bHTTPS\b/gi,"ây ch ti ti pi ét"],[/\bCPU\b/gi,"xi pi iu"],[/\bGPU\b/gi,"gi pi iu"],[/\bRAM\b/gi,"ram"],[/\bROM\b/gi,"rom"],[/\bUI\b/gi,"iu ai"],[/\bUX\b/gi,"iu ích"],[/\bIoT\b/g,"ai ô ti"],[/\b machine learning \b/gi,"học máy"],[/\b deep learning \b/gi,"học sâu"],[/\bcloud computing\b/gi,"điện toán đám mây"],[/\bsoftware\b/gi,"phần mềm"],[/\bhardware\b/gi,"phần cứng"]
+];
+function speechText(text){var out=String(text||"");speakTerms.forEach(function(pair){out=out.replace(pair[0],pair[1])});return out;}
 function libGet(){try{return JSON.parse(localStorage.getItem("gv_lib")||"[]")}catch(e){return[]}}
 function libSet(a){try{localStorage.setItem("gv_lib",JSON.stringify(a));return true}catch(e){return false}}
 function saveDoc(){
@@ -187,10 +192,11 @@ try{KEY=localStorage.getItem("ak")||""}catch(e){}
 $("key").value=KEY;
 $("key").addEventListener("input",function(){KEY=this.value.trim();try{localStorage.setItem("ak",KEY)}catch(e){}});
 sample={json:async function(p){
-  var r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-5-5",max_tokens:8000,messages:[{role:"user",content:p}]})});
-  if(!r.ok){var er=new Error("API "+r.status);er.status=r.status;er.code=r.status===429?"rate_limited":"http";throw er}
-  var d=await r.json(),t=d.content.map(function(x){return x.text||""}).join("").replace(/```json|```/g,"").trim();
-  var a=t.indexOf("{"),b=t.lastIndexOf("}");return JSON.parse(t.slice(a,b+1));
+  var endpoint="https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key="+encodeURIComponent(KEY);
+  var r=await fetch(endpoint,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:p}]}],generationConfig:{maxOutputTokens:8000,responseMimeType:"application/json"}})});
+  if(!r.ok){var detail="";try{var body=await r.json();detail=body.error&&body.error.message?": "+body.error.message:""}catch(ignore){}var er=new Error("Gemini API "+r.status+detail);er.status=r.status;er.code=r.status===429?"rate_limited":"http";throw er}
+  var d=await r.json(),t=((d.candidates||[])[0]?.content?.parts||[]).map(function(x){return x.text||""}).join("").replace(/```json|```/g,"").trim();
+  var a=t.indexOf("{"),b=t.lastIndexOf("}");if(a<0||b<a)throw new Error("Gemini không trả về JSON hợp lệ. Hãy thử lại hoặc dùng PDF ngắn hơn.");return JSON.parse(t.slice(a,b+1));
 }};
 
 /* ---------- upload ---------- */
@@ -219,7 +225,7 @@ async function start(file){
     }
     text=text.replace(/[ \t]+/g," ").trim();
     if(text.length<200){busy=false;$("prog").classList.add("hide");return showErr("File này gần như không có chữ chọn được, có thể là bản scan (ảnh chụp). Hãy thử file PDF có chữ bôi đen được.")}
-    if(!KEY){busy=false;$("prog").classList.add("hide");return showErr("Hãy nhập khóa API Anthropic ở khung phía trên trước khi tải PDF.")}
+    if(!KEY){busy=false;$("prog").classList.add("hide");return showErr("Hãy nhập khóa API Gemini ở khung phía trên trước khi tải PDF.")}
     await generate(text);
   }catch(e){showErr("Có lỗi khi xử lý: "+(e&&e.message?e.message:e));$("prog").classList.add("hide")}
   busy=false;
@@ -254,7 +260,7 @@ async function generate(text){
       if(!opened&&lessons.length){opened=true;openPlayer()}
     }
   }
-  if(!lessons.length){$("prog").classList.add("hide");return showErr("Chưa soạn được bài giảng nào."+(lastErr&&lastErr.status===401?" Khóa API không hợp lệ.":lastErr&&lastErr.status===429?" Bị giới hạn lượt gọi, hãy thử lại sau.":lastErr?" Lỗi: "+lastErr.message+". Bạn thử lại hoặc dùng file ngắn hơn nhé.":""))}
+  if(!lessons.length){$("prog").classList.add("hide");return showErr("Chưa soạn được bài giảng nào."+(lastErr&&lastErr.status===401?" Khóa Gemini API không hợp lệ hoặc chưa được cấp quyền.":lastErr&&lastErr.status===429?" Bị giới hạn lượt gọi, hãy thử lại sau.":lastErr?" Lỗi: "+lastErr.message+". Bạn thử lại hoặc dùng file ngắn hơn nhé.":""))}
   var note=chunks.length>MAXCHUNK?" Tài liệu dài nên mới giảng "+MAXCHUNK+" phần đầu.":"";
   if(failed)note+=" Có "+failed+" phần soạn lỗi nên bị bỏ qua.";
   $("gen").textContent="Đã soạn xong "+lessons.length+" bài."+note;
@@ -263,7 +269,7 @@ async function generate(text){
 function prompt(t,k,n){
   return "Bạn là một giảng viên đại học tận tâm, đang đứng lớp giảng cho sinh viên. Hãy biến đoạn tài liệu sau (phần "+(k+1)+"/"+n+") thành 1 đến 2 bài giảng bằng tiếng Việt, dễ hiểu cho người mới.\n"+
   "Chỉ trả về JSON hợp lệ, không thêm chữ nào khác, đúng dạng: {\"lessons\":[{\"title\":\"...\",\"slides\":[{\"heading\":\"...\",\"points\":[\"...\"],\"script\":\"...\",\"visual\":{\"type\":\"flow\",\"caption\":\"...\",\"items\":[{\"icon\":\"🙂\",\"label\":\"...\",\"sub\":\"...\"}]}}]}]}\n"+
-  "Quy tắc: mỗi bài 3 đến 5 slide, tổng cộng không quá 8 slide; heading ngắn gọn; points là 2 đến 4 ý chính ngắn gọn (mỗi ý dưới 15 từ) hiện trên bảng; script là lời giảng 70 đến 130 từ, nói tự nhiên như đang nói với sinh viên (có thể mở đầu bằng \"Các em\" hoặc \"Chúng ta\"), giải thích thuật ngữ bằng lời đơn giản, thêm ví dụ đời thường khi phù hợp, không đọc nguyên văn tài liệu, không dùng ký hiệu markdown, ký tự đặc biệt hay danh sách, viết số và đơn vị thành chữ dễ đọc thành tiếng. visual là hình minh họa vẽ bằng biểu tượng giúp hiểu nội dung slide đó: type là một trong flow (các bước nối tiếp), cycle (vòng lặp), compare (so sánh đúng 2 mục), icons (các ý rời rạc); caption dưới 10 từ; items từ 2 đến 5 mục, mỗi mục có icon là đúng 1 emoji sát nghĩa và cụ thể, label dưới 5 từ, sub (không bắt buộc) dưới 8 từ. Giữ đúng nội dung tài liệu, không bịa thêm kiến thức không có trong đó.\n\nTÀI LIỆU:\n"+t;
+  "Quy tắc: mỗi bài 3 đến 5 slide, tổng cộng không quá 8 slide; heading ngắn gọn; points là 2 đến 4 ý chính ngắn gọn (mỗi ý dưới 15 từ) hiện trên bảng; script là lời giảng 70 đến 130 từ, nói tự nhiên như đang nói với sinh viên (có thể mở đầu bằng \"Các em\" hoặc \"Chúng ta\"), giải thích thuật ngữ bằng lời đơn giản, thêm ví dụ đời thường khi phù hợp, không đọc nguyên văn tài liệu. Ưu tiên tiếng Việt tự nhiên; khi gặp từ tiếng Anh, hãy dịch sang tiếng Việt nếu không làm sai nghĩa. Nếu buộc phải dùng thuật ngữ tiếng Anh, hãy viết cách đọc gần đúng bằng tiếng Việt ngay sau thuật ngữ trong ngoặc. Với chữ viết tắt, lần đầu phải viết đầy đủ nghĩa tiếng Việt rồi ghi cách đọc tên chữ cái bằng tiếng Việt; tránh để nguyên chuỗi chữ cái tiếng Anh vì giọng đọc máy dễ đọc sai. Viết số và đơn vị thành chữ dễ đọc thành tiếng; không dùng ký hiệu markdown, ký tự đặc biệt hay danh sách trong script. visual phải minh họa CHÍNH XÁC ý đang giảng ở slide, không dùng biểu tượng chung chung hoặc lặp lại cùng một sơ đồ cho mọi slide. Chọn type phù hợp: flow cho quy trình theo thứ tự, cycle cho vòng lặp, compare cho so sánh đúng 2 mục, icons chỉ khi các ý thực sự độc lập. Các mục trong visual phải phản ánh đúng các khái niệm, đối tượng hoặc bước đã nêu trong heading, points và script; không tự thêm nội dung. caption dưới 10 từ; items từ 2 đến 5 mục, mỗi mục có đúng 1 emoji cụ thể, label dưới 5 từ, sub (không bắt buộc) dưới 8 từ. Giữ đúng nội dung tài liệu, không bịa thêm kiến thức không có trong đó.\n\nTÀI LIỆU:\n"+t;
 }
 
 /* ---------- player ---------- */
@@ -341,7 +347,7 @@ function gapMs(){return parseInt($("gap").value,10)||500}
 function queueFrom(tk){
   var txt=sentences[sentIdx],n=sentences.length,fired=false;
   $("cap").textContent=txt;sentStart=performance.now();reveal();talk(true);
-  var u=new SpeechSynthesisUtterance(txt),v=pickVoice();
+  var u=new SpeechSynthesisUtterance(speechText(txt)),v=pickVoice();
   if(v){u.voice=v;u.lang=v.lang}else u.lang="vi-VN";
   u.rate=rate();
   function fin(){
@@ -358,7 +364,7 @@ function queueFrom(tk){
 function speak(txt,tk,done){
   var fired=false;function fin(){if(fired)return;fired=true;done()}
   if(!synth){setTimeout(fin,Math.max(1200,txt.length*70)/rate());return}
-  var u=new SpeechSynthesisUtterance(txt);
+  var u=new SpeechSynthesisUtterance(speechText(txt));
   var v=pickVoice();if(v){u.voice=v;u.lang=v.lang}else u.lang="vi-VN";
   u.rate=rate();
   u.onend=fin;u.onerror=function(){if(tk===token)setTimeout(fin,Math.max(1000,txt.length*60))};
