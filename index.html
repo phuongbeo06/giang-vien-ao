@@ -63,6 +63,18 @@ svg.m .fonly,svg.f .monly{display:none}
 .les.cur{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--surface))}
 .les small{display:block;color:var(--muted)}
 .opts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;font-size:.9rem;color:var(--muted);align-items:center}
+.time{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.92rem;white-space:nowrap}
+.vis{margin-top:14px;border-top:1px dashed rgba(255,255,255,.3);padding-top:12px}
+.vis:empty{display:none}
+.vcap{font-size:.85rem;color:var(--chalk);margin:0 0 8px}
+.vrow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.vw{display:flex;align-items:center;gap:8px;opacity:0;transform:scale(.9);transition:all .4s}
+.vw.on{opacity:1;transform:none}
+.ar{font-size:1.1rem;color:var(--chalk);font-weight:700}
+.vi{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:8px 10px;text-align:center;min-width:76px}
+.ic{font-size:1.9rem;line-height:1.15}
+.lb{font-size:.88rem;font-weight:600}
+.sb{font-size:.76rem;opacity:.8}
 </style>
 </head>
 <body>
@@ -92,7 +104,7 @@ svg.m .fonly,svg.f .monly{display:none}
     <div>
       <p class="tag" id="tag"></p>
       <div class="stage" id="stage">
-        <div class="board"><h2 id="head"></h2><ul id="pts"></ul></div>
+        <div class="board"><h2 id="head"></h2><ul id="pts"></ul><div id="vis" class="vis"></div></div>
         <div class="teacher">
           <svg id="tsvg" class="m" viewBox="0 0 200 270" aria-label="Giảng viên">
             <g class="arm"><path d="M150 150 Q185 130 178 98" stroke="var(--skin)" stroke-width="13" fill="none" stroke-linecap="round"/><circle cx="178" cy="95" r="8" fill="var(--skin)"/></g>
@@ -118,13 +130,15 @@ svg.m .fonly,svg.f .monly{display:none}
         <button id="prev" aria-label="Slide trước">⏮</button>
         <button id="play" class="pri">▶ Bắt đầu giảng</button>
         <button id="next" aria-label="Slide sau">⏭</button>
+        <span class="time" id="time" title="Thời lượng ước tính theo tốc độ đọc">0:00 / 0:00</span>
         <span class="sp"></span>
         <button id="again">↻ Giảng lại slide</button>
       </div>
       <div class="opts">
         <label>Giảng viên <select id="who"><option value="m">Thầy</option><option value="f">Cô</option></select></label>
         <label>Giọng <select id="voice"></select></label>
-        <label>Tốc độ <select id="rate"><option value="0.8">Chậm</option><option value="1" selected>Vừa</option><option value="1.2">Nhanh</option></select></label>
+        <label>Nghỉ giữa câu <select id="gap"><option value="250">Ngắn</option><option value="500" selected>Vừa</option><option value="900">Dài</option></select></label>
+        <label>Tốc độ <select id="rate"><option value="0.75">Chậm</option><option value="0.92" selected>Vừa</option><option value="1.1">Nhanh</option></select></label>
       </div>
       <p class="msg" id="vmsg"></p>
     </div>
@@ -138,7 +152,7 @@ svg.m .fonly,svg.f .monly{display:none}
 var $=function(id){return document.getElementById(id)};
 var lessons=[],cur={l:0,s:0},playing=false,token=0,sentIdx=0,sentences=[],sample=null,busy=false;
 var synth=window.speechSynthesis||null,voices=[];
-var CHUNK=9000,MAXCHUNK=10,docName="";
+var CHUNK=9000,MAXCHUNK=10,docName="",sentStart=0,T={items:[],total:0},seekWas=false;
 function libGet(){try{return JSON.parse(localStorage.getItem("gv_lib")||"[]")}catch(e){return[]}}
 function libSet(a){try{localStorage.setItem("gv_lib",JSON.stringify(a));return true}catch(e){return false}}
 function saveDoc(){
@@ -158,7 +172,11 @@ function renderSaved(){
     var sm=document.createElement("small");sm.textContent=d.lessons.length+" bài · "+new Date(d.date).toLocaleDateString("vi-VN");open.appendChild(sm);
     open.onclick=function(){lessons=d.lessons;docName=d.name;$("err").classList.add("hide");openPlayer();$("gen").textContent="Đây là bài giảng đã lưu, không cần soạn lại.";};
     var del=document.createElement("button");del.textContent="Xóa";del.setAttribute("aria-label","Xóa "+d.name);
-    del.onclick=function(){if(confirm("Xóa bài giảng này?")){libSet(libGet().filter(function(x){return x.name!==d.name}));renderSaved()}};
+    del.onclick=function(){
+      if(del.dataset.sure){libSet(libGet().filter(function(x){return x.name!==d.name}));renderSaved();return}
+      del.dataset.sure="1";del.textContent="Chắc chắn xóa?";del.className="pri";
+      setTimeout(function(){if(del.isConnected&&del.dataset.sure){delete del.dataset.sure;del.textContent="Xóa";del.className=""}},3000);
+    };
     row.appendChild(open);row.appendChild(del);box.appendChild(row);
   });
 }
@@ -169,7 +187,7 @@ try{KEY=localStorage.getItem("ak")||""}catch(e){}
 $("key").value=KEY;
 $("key").addEventListener("input",function(){KEY=this.value.trim();try{localStorage.setItem("ak",KEY)}catch(e){}});
 sample={json:async function(p){
-  var r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-5-5",max_tokens:6000,messages:[{role:"user",content:p}]})});
+  var r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-5-5",max_tokens:8000,messages:[{role:"user",content:p}]})});
   if(!r.ok){var er=new Error("API "+r.status);er.status=r.status;er.code=r.status===429?"rate_limited":"http";throw er}
   var d=await r.json(),t=d.content.map(function(x){return x.text||""}).join("").replace(/```json|```/g,"").trim();
   var a=t.indexOf("{"),b=t.lastIndexOf("}");return JSON.parse(t.slice(a,b+1));
@@ -244,8 +262,8 @@ async function generate(text){
 
 function prompt(t,k,n){
   return "Bạn là một giảng viên đại học tận tâm, đang đứng lớp giảng cho sinh viên. Hãy biến đoạn tài liệu sau (phần "+(k+1)+"/"+n+") thành 1 đến 2 bài giảng bằng tiếng Việt, dễ hiểu cho người mới.\n"+
-  "Chỉ trả về JSON hợp lệ, không thêm chữ nào khác, đúng dạng: {\"lessons\":[{\"title\":\"...\",\"slides\":[{\"heading\":\"...\",\"points\":[\"...\"],\"script\":\"...\"}]}]}\n"+
-  "Quy tắc: mỗi bài 3 đến 6 slide; heading ngắn gọn; points là 2 đến 4 ý chính ngắn gọn (mỗi ý dưới 15 từ) hiện trên bảng; script là lời giảng 70 đến 130 từ, nói tự nhiên như đang nói với sinh viên (có thể mở đầu bằng \"Các em\" hoặc \"Chúng ta\"), giải thích thuật ngữ bằng lời đơn giản, thêm ví dụ đời thường khi phù hợp, không đọc nguyên văn tài liệu, không dùng ký hiệu markdown, ký tự đặc biệt hay danh sách, viết số và đơn vị thành chữ dễ đọc thành tiếng. Giữ đúng nội dung tài liệu, không bịa thêm kiến thức không có trong đó.\n\nTÀI LIỆU:\n"+t;
+  "Chỉ trả về JSON hợp lệ, không thêm chữ nào khác, đúng dạng: {\"lessons\":[{\"title\":\"...\",\"slides\":[{\"heading\":\"...\",\"points\":[\"...\"],\"script\":\"...\",\"visual\":{\"type\":\"flow\",\"caption\":\"...\",\"items\":[{\"icon\":\"🙂\",\"label\":\"...\",\"sub\":\"...\"}]}}]}]}\n"+
+  "Quy tắc: mỗi bài 3 đến 5 slide, tổng cộng không quá 8 slide; heading ngắn gọn; points là 2 đến 4 ý chính ngắn gọn (mỗi ý dưới 15 từ) hiện trên bảng; script là lời giảng 70 đến 130 từ, nói tự nhiên như đang nói với sinh viên (có thể mở đầu bằng \"Các em\" hoặc \"Chúng ta\"), giải thích thuật ngữ bằng lời đơn giản, thêm ví dụ đời thường khi phù hợp, không đọc nguyên văn tài liệu, không dùng ký hiệu markdown, ký tự đặc biệt hay danh sách, viết số và đơn vị thành chữ dễ đọc thành tiếng. visual là hình minh họa vẽ bằng biểu tượng giúp hiểu nội dung slide đó: type là một trong flow (các bước nối tiếp), cycle (vòng lặp), compare (so sánh đúng 2 mục), icons (các ý rời rạc); caption dưới 10 từ; items từ 2 đến 5 mục, mỗi mục có icon là đúng 1 emoji sát nghĩa và cụ thể, label dưới 5 từ, sub (không bắt buộc) dưới 8 từ. Giữ đúng nội dung tài liệu, không bịa thêm kiến thức không có trong đó.\n\nTÀI LIỆU:\n"+t;
 }
 
 /* ---------- player ---------- */
@@ -257,15 +275,15 @@ function flat(){var a=[];lessons.forEach(function(L,li){L.slides.forEach(functio
 function pos(){var f=flat();for(var i=0;i<f.length;i++)if(f[i][0]===cur.l&&f[i][1]===cur.s)return i;return 0}
 
 function renderList(){
-  var box=$("list");box.innerHTML="";
+  buildTimes();var box=$("list");box.innerHTML="";
   lessons.forEach(function(L,i){
     var b=document.createElement("button");b.className="les"+(i===cur.l?" cur":"");
     b.textContent=(i+1)+". "+L.title;
-    var sm=document.createElement("small");sm.textContent=L.slides.length+" slide";b.appendChild(sm);
-    b.onclick=function(){show(i,0);play()};
+    var sm=document.createElement("small");var ld=0;T.items.forEach(function(x){if(x.l===i)ld+=x.dur});sm.textContent=L.slides.length+" slide · ≈"+fmt(ld);b.appendChild(sm);
+    b.onclick=function(){show(i,0);play(1000)};
     box.appendChild(b);
   });
-  $("seek").max=Math.max(0,flat().length-1);
+  updateTime();
 }
 
 function show(l,s){
@@ -275,16 +293,25 @@ function show(l,s){
   $("head").textContent=S.heading;
   var ul=$("pts");ul.innerHTML="";
   (S.points||[]).forEach(function(p){var li=document.createElement("li");li.textContent=p;ul.appendChild(li)});
-  sentences=split(S.script);sentIdx=0;
+  renderVisual(S.visual);sentences=split(S.script);sentIdx=0;
   $("cap").textContent="Bấm “Bắt đầu giảng” để nghe giảng viên giảng slide này.";
-  $("seek").value=pos();
   renderList();
   if(!playing)setPlayLabel();
 }
-function split(t){var m=String(t).replace(/\s+/g," ").match(/[^.!?…]+[.!?…]*/g)||[t];return m.map(function(x){return x.trim()}).filter(Boolean)}
+function split(t){
+  var m=String(t).replace(/\s+/g," ").match(/[^.!?…]+[.!?…]*/g)||[String(t)],out=[];
+  m.forEach(function(x){
+    x=x.trim();if(!x)return;
+    while(x.length>170){var c=x.lastIndexOf(", ",170);if(c<60)c=x.lastIndexOf(" ",170);if(c<1)break;out.push(x.slice(0,c+1).trim());x=x.slice(c+1).trim()}
+    out.push(x);
+  });
+  return out;
+}
 function reveal(){
   var items=$("pts").children,n=items.length,S=Math.max(1,sentences.length);
   for(var k=0;k<n;k++){if(sentIdx>=Math.floor(k*S/n))items[k].classList.add("on")}
+  var vw=$("vis").querySelectorAll(".vw"),m=vw.length;
+  for(var j=0;j<m;j++){if(sentIdx>=Math.floor(S*(0.25+0.6*j/m)))vw[j].classList.add("on")}
 }
 function setPlayLabel(){$("play").textContent=playing?"⏸ Tạm dừng":(sentIdx>0?"▶ Tiếp tục":"▶ Bắt đầu giảng")}
 function talk(on){$("stage").classList.toggle("talking",on)}
@@ -292,20 +319,41 @@ function talk(on){$("stage").classList.toggle("talking",on)}
 function stop(){
   playing=false;token++;if(synth)synth.cancel();talk(false);
 }
-function play(){
-  if(playing)return;playing=true;setPlayLabel();step(++token);
+function play(delay){
+  if(playing)return;playing=true;setPlayLabel();
+  var tk=++token;
+  if(delay){talk(false);$("cap").textContent="";setTimeout(function(){step(tk)},delay)}else step(tk);
 }
 function pause(){playing=false;token++;if(synth)synth.cancel();talk(false);setPlayLabel()}
 
 function step(tk){
   if(tk!==token||!playing)return;
   if(sentIdx>=sentences.length){return nextSlide(true)}
+  if(synth){queueFrom(tk);return}
   var txt=sentences[sentIdx];
-  $("cap").textContent=txt;reveal();talk(true);
+  $("cap").textContent=txt;sentStart=performance.now();reveal();talk(true);
   speak(txt,tk,function(){
     if(tk!==token||!playing)return;
     sentIdx++;step(tk);
   });
+}
+function gapMs(){return parseInt($("gap").value,10)||500}
+function queueFrom(tk){
+  var txt=sentences[sentIdx],n=sentences.length,fired=false;
+  $("cap").textContent=txt;sentStart=performance.now();reveal();talk(true);
+  var u=new SpeechSynthesisUtterance(txt),v=pickVoice();
+  if(v){u.voice=v;u.lang=v.lang}else u.lang="vi-VN";
+  u.rate=rate();
+  function fin(){
+    if(fired||tk!==token||!playing)return;fired=true;
+    sentIdx++;
+    if(sentIdx>=n){step(tk);return}
+    talk(false);
+    setTimeout(function(){step(tk)},gapMs());
+  }
+  u.onend=fin;
+  u.onerror=function(e){if(e&&(e.error==="canceled"||e.error==="interrupted"))return;fin()};
+  synth.speak(u);
 }
 function speak(txt,tk,done){
   var fired=false;function fin(){if(fired)return;fired=true;done()}
@@ -317,6 +365,51 @@ function speak(txt,tk,done){
   synth.speak(u);
 }
 function rate(){return parseFloat($("rate").value)||1}
+function fmt(s){s=Math.max(0,Math.round(s));return Math.floor(s/60)+":"+("0"+s%60).slice(-2)}
+function est(t){var w=String(t).split(/\s+/).filter(Boolean).length;return w/2.6/rate()+gapMs()/1000}
+function buildTimes(){
+  var t=0,arr=[];
+  flat().forEach(function(p){
+    var S=lessons[p[0]].slides[p[1]],ss=split(S.script),cum=[],a=0;
+    ss.forEach(function(x){cum.push(a);a+=est(x)});a+=1;
+    arr.push({l:p[0],s:p[1],start:t,cum:cum,dur:a});t+=a;
+  });
+  T={items:arr,total:t};
+}
+function curTime(){
+  if(!T.items.length)return 0;
+  var it=T.items[pos()]||T.items[0],base=it.start+(sentIdx<it.cum.length?it.cum[sentIdx]:it.dur),el=0;
+  if(playing&&sentIdx<sentences.length)el=Math.min(est(sentences[sentIdx]),(performance.now()-sentStart)/1000);
+  return base+el;
+}
+function updateTime(){
+  if(!T.items.length||$("player").classList.contains("hide"))return;
+  var c=curTime(),sk=$("seek");
+  sk.max=Math.ceil(T.total);
+  if(document.activeElement!==sk)sk.value=Math.round(c);
+  $("time").textContent=fmt(c)+" / ≈"+fmt(T.total);
+}
+function mk(tag,cls,txt){var e=document.createElement(tag);e.className=cls;if(txt!=null)e.textContent=txt;return e}
+function renderVisual(v){
+  var box=$("vis");box.innerHTML="";
+  if(!v||!v.items||!v.items.length)return;
+  var type=/^(flow|cycle|compare|icons)$/.test(v.type)?v.type:"icons";
+  var items=v.items.slice(0,type==="compare"?2:5);
+  if(v.caption)box.appendChild(mk("p","vcap",String(v.caption)));
+  var row=mk("div","vrow");
+  items.forEach(function(it,i){
+    var w=mk("div","vw");
+    if(i>0&&type!=="icons")w.appendChild(mk("span","ar",type==="compare"?"VS":"→"));
+    var card=mk("div","vi");
+    card.appendChild(mk("div","ic",Array.from(String(it.icon||"📌")).slice(0,3).join("")));
+    card.appendChild(mk("div","lb",String(it.label||"")));
+    if(it.sub)card.appendChild(mk("div","sb",String(it.sub)));
+    w.appendChild(card);row.appendChild(w);
+  });
+  if(type==="cycle"){var e=mk("div","vw");e.appendChild(mk("span","ar","↺"));row.appendChild(e)}
+  box.appendChild(row);
+}
+setInterval(updateTime,250);
 
 function nextSlide(auto){
   var f=flat(),i=pos();
@@ -327,17 +420,28 @@ function nextSlide(auto){
     return;
   }
   var n=f[i+1];show(n[0],n[1]);
-  if(auto){playing=true;setPlayLabel();step(++token)}
+  if(auto)play(1000)
 }
 function prevSlide(){var f=flat(),i=pos();if(i>0){var p=f[i-1];show(p[0],p[1])}}
 
 $("play").onclick=function(){playing?pause():play()};
-$("next").onclick=function(){var was=playing;nextSlide(false);if(was)play()};
-$("prev").onclick=function(){var was=playing;prevSlide();if(was)play()};
+$("next").onclick=function(){var was=playing;nextSlide(false);if(was)play(1000)};
+$("prev").onclick=function(){var was=playing;prevSlide();if(was)play(1000)};
 $("again").onclick=function(){var l=cur.l,s=cur.s;show(l,s);play()};
-$("seek").oninput=function(){var was=playing,p=flat()[+this.value];if(p){show(p[0],p[1]);if(was)play()}};
-$("rate").onchange=function(){if(playing){var tk=++token;if(synth)synth.cancel();step(tk)}};
+$("seek").oninput=function(){
+  if(!T.items.length)return;
+  if(playing)seekWas=true;
+  var t=+this.value,it=T.items[T.items.length-1];
+  for(var i=0;i<T.items.length;i++){if(t<T.items[i].start+T.items[i].dur){it=T.items[i];break}}
+  var k=0;for(var j=0;j<it.cum.length;j++){if(t-it.start>=it.cum[j])k=j}
+  show(it.l,it.s);sentIdx=k;
+  if(k>0){$("cap").textContent=sentences[k];reveal()}
+  updateTime();
+};
+$("seek").onchange=function(){if(seekWas){seekWas=false;play(500)}};
+$("rate").onchange=function(){buildTimes();updateTime();if(playing){var tk=++token;if(synth)synth.cancel();step(tk)}};
 $("voice").onchange=function(){if(playing){var tk=++token;if(synth)synth.cancel();step(tk)}};
+$("gap").onchange=function(){buildTimes();updateTime()};
 $("who").onchange=function(){$("tsvg").setAttribute("class",this.value)};
 $("reset").onclick=function(){stop();lessons=[];$("player").classList.add("hide");$("up").classList.remove("hide");$("prog").classList.add("hide");$("file").value="";$("list").innerHTML="";renderSaved()};
 
@@ -346,11 +450,12 @@ function loadVoices(){
   if(!synth){$("vmsg").textContent="Trình duyệt này không hỗ trợ giọng đọc. Giảng viên vẫn chạy theo phụ đề.";return}
   var all=synth.getVoices();
   var vi=all.filter(function(v){return /^vi/i.test(v.lang)});
-  voices=vi.length?vi:all;
+  function score(v){var n=v.name;return(/natural/i.test(n)?4:0)+(/microsoft/i.test(n)?2:0)+(/google/i.test(n)?1:0)}
+  voices=(vi.length?vi:all).slice().sort(function(a,b){return score(b)-score(a)});
   var sel=$("voice"),keep=sel.value;sel.innerHTML="";
   voices.forEach(function(v,i){var o=document.createElement("option");o.value=i;o.textContent=v.name+" ("+v.lang+")";sel.appendChild(o)});
   if(keep)sel.value=keep;
-  $("vmsg").textContent=vi.length?"":"Máy bạn chưa có giọng tiếng Việt, hãy cài giọng Vietnamese trong cài đặt hệ thống (hoặc dùng Chrome/Edge) để nghe chuẩn hơn.";
+  $("vmsg").textContent=!vi.length?"Máy bạn chưa có giọng tiếng Việt, hãy cài giọng Vietnamese trong cài đặt hệ thống (hoặc dùng Chrome/Edge) để nghe chuẩn hơn.":(vi.some(function(v){return /natural/i.test(v.name)})?"":"Mẹo: mở trang bằng Microsoft Edge để có giọng tiếng Việt “Natural” (HoaiMy, NamMinh), nghe liền mạch và tự nhiên hơn.");
 }
 function pickVoice(){var i=parseInt($("voice").value,10);return voices[i]||null}
 if(synth){synth.onvoiceschanged=loadVoices;loadVoices()}
