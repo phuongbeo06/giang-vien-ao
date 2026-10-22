@@ -89,11 +89,15 @@ a.dl{display:inline-block;margin-top:8px;padding:8px 14px;border-radius:10px;bac
   <div id="up">
     <div class="card" style="margin-bottom:16px">
       <label><b>Dùng dịch vụ AI nào để soạn bài giảng?</b><br>
-        <select id="prov" style="margin-top:6px"><option value="anthropic">Anthropic (Claude)</option><option value="openai">OpenAI</option></select></label>
+        <select id="prov" style="margin-top:6px"><option value="anthropic">Anthropic (Claude)</option><option value="openai">OpenAI</option><option value="gemini">Google Gemini</option></select></label>
       <div id="box_a" style="margin-top:12px"><label><b>Khóa API Anthropic</b><br><input id="key" class="kin" type="password" placeholder="sk-ant-..." autocomplete="off"></label></div>
       <div id="box_o" class="hide" style="margin-top:12px">
         <label><b>Khóa API OpenAI</b><br><input id="okey" class="kin" type="password" placeholder="sk-..." autocomplete="off"></label>
         <label style="display:block;margin-top:10px"><b>Tên model OpenAI</b> <span class="msg" style="display:inline">(có thể sửa)</span><br><input id="omodel" class="kin" list="omodels" autocomplete="off"><datalist id="omodels"><option value="gpt-5.6-sol"><option value="gpt-5.6-terra"><option value="gpt-5.6-luna"><option value="gpt-6-astra"></datalist></label>
+      </div>
+      <div id="box_g" class="hide" style="margin-top:12px">
+        <label><b>Khóa API Google Gemini</b><br><input id="gkey" class="kin" type="password" placeholder="AIza..." autocomplete="off"></label>
+        <label style="display:block;margin-top:10px"><b>Tên model Gemini</b> <span class="msg" style="display:inline">(có thể sửa)</span><br><input id="gmodel" class="kin" list="gmodels" autocomplete="off"><datalist id="gmodels"><option value="gemini-3.6-flash"><option value="gemini-3.8-flash"><option value="gemini-3.5-flash-lite"><option value="gemini-2.5-flash"></datalist></label>
       </div>
       <p class="msg" id="keynote"></p>
     </div>
@@ -199,24 +203,30 @@ function renderSaved(){
 }
 
 if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";}
-var KEY="",OKEY="",PROV="anthropic",OMODEL="gpt-5.6-sol",lastErr=null;
-try{KEY=localStorage.getItem("ak")||"";OKEY=localStorage.getItem("ok")||"";PROV=localStorage.getItem("prov")||"anthropic";OMODEL=localStorage.getItem("om")||OMODEL}catch(e){}
-if(PROV!=="openai")PROV="anthropic";
+var KEY="",OKEY="",GKEY="",PROV="anthropic",OMODEL="gpt-5.6-sol",GMODEL="gemini-3.6-flash",lastErr=null;
+try{KEY=localStorage.getItem("ak")||"";OKEY=localStorage.getItem("ok")||"";PROV=localStorage.getItem("prov")||"anthropic";OMODEL=localStorage.getItem("om")||OMODEL;GKEY=localStorage.getItem("gk")||"";GMODEL=localStorage.getItem("gm")||GMODEL}catch(e){}
+if(PROV!=="openai"&&PROV!=="gemini")PROV="anthropic";
 function store(k,v){try{localStorage.setItem(k,v)}catch(e){}}
-function curKey(){return PROV==="openai"?OKEY:KEY}
-function provName(){return PROV==="openai"?"OpenAI":"Anthropic"}
+function curKey(){return PROV==="openai"?OKEY:PROV==="gemini"?GKEY:KEY}
+function provName(){return PROV==="openai"?"OpenAI":PROV==="gemini"?"Gemini":"Anthropic"}
 function syncProv(){
-  $("box_a").classList.toggle("hide",PROV==="openai");
+  $("box_a").classList.toggle("hide",PROV!=="anthropic");
   $("box_o").classList.toggle("hide",PROV!=="openai");
-  $("keynote").textContent=PROV==="openai"
-    ?"Khóa chỉ lưu trong trình duyệt của bạn và gửi thẳng tới OpenAI để soạn bài giảng. Lấy khóa tại platform.openai.com (có tính phí theo lượt dùng). Nếu OpenAI đổi tên model, bạn chỉ cần sửa ô tên model."
-    :"Khóa chỉ lưu trong trình duyệt của bạn và gửi thẳng tới Anthropic để soạn bài giảng. Lấy khóa tại console.anthropic.com (có tính phí theo lượt dùng).";
+  $("box_g").classList.toggle("hide",PROV!=="gemini");
+  var N={
+    anthropic:"Khóa chỉ lưu trong trình duyệt của bạn và gửi thẳng tới Anthropic để soạn bài giảng. Lấy khóa tại console.anthropic.com (có tính phí theo lượt dùng).",
+    openai:"Khóa chỉ lưu trong trình duyệt của bạn và gửi thẳng tới OpenAI để soạn bài giảng. Lấy khóa tại platform.openai.com (có tính phí theo lượt dùng). Nếu OpenAI đổi tên model, bạn chỉ cần sửa ô tên model.",
+    gemini:"Khóa chỉ lưu trong trình duyệt của bạn và gửi thẳng tới Google để soạn bài giảng. Lấy khóa tại aistudio.google.com. Google thường có gói miễn phí giới hạn, bạn nên kiểm tra mức hiện hành trước khi dùng. Nếu Google đổi tên model, bạn chỉ cần sửa ô tên model."
+  };
+  $("keynote").textContent=N[PROV];
 }
-$("key").value=KEY;$("okey").value=OKEY;$("omodel").value=OMODEL;$("prov").value=PROV;syncProv();
-$("prov").onchange=function(){PROV=this.value==="openai"?"openai":"anthropic";store("prov",PROV);syncProv()};
+$("key").value=KEY;$("okey").value=OKEY;$("omodel").value=OMODEL;$("gkey").value=GKEY;$("gmodel").value=GMODEL;$("prov").value=PROV;syncProv();
+$("prov").onchange=function(){var v=this.value;PROV=(v==="openai"||v==="gemini")?v:"anthropic";store("prov",PROV);syncProv()};
 $("key").addEventListener("input",function(){KEY=this.value.trim();store("ak",KEY)});
 $("okey").addEventListener("input",function(){OKEY=this.value.trim();store("ok",OKEY)});
 $("omodel").addEventListener("input",function(){OMODEL=this.value.trim()||"gpt-5.6-sol";store("om",OMODEL)});
+$("gkey").addEventListener("input",function(){GKEY=this.value.trim();store("gk",GKEY)});
+$("gmodel").addEventListener("input",function(){GMODEL=this.value.trim()||"gemini-3.6-flash";store("gm",GMODEL)});
 function parseJson(t){
   var m=String(t).match(/\{[\s\S]*\}/);
   if(!m)throw new Error("AI không trả về định dạng JSON hợp lệ.");
@@ -241,7 +251,19 @@ async function askOpenAI(p){
   var d=await r.json(),c=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content;
   return parseJson((c||"").trim());
 }
-sample={json:function(p){return PROV==="openai"?askOpenAI(p):askClaude(p)}};
+async function askGemini(p){
+  var m=GMODEL.replace(/^models\//,""),url="https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(m)+":generateContent";
+  var body={contents:[{role:"user",parts:[{text:p}]}],generationConfig:{responseMimeType:"application/json"}};
+  function call(){return fetch(url,{method:"POST",headers:{"content-type":"application/json","x-goog-api-key":GKEY},body:JSON.stringify(body)})}
+  var r=await call();
+  if(r.status===400){delete body.generationConfig;r=await call()}
+  if(!r.ok)throw await httpErr(r);
+  var d=await r.json(),c=d.candidates&&d.candidates[0];
+  var t=(c&&c.content&&c.content.parts)?c.content.parts.map(function(x){return x.text||""}).join(""):"";
+  if(!t.trim()){var why=(d.promptFeedback&&d.promptFeedback.blockReason)||(c&&c.finishReason)||"";throw new Error("Gemini không trả về nội dung"+(why?" ("+why+")":""))}
+  return parseJson(t.trim());
+}
+sample={json:function(p){return PROV==="openai"?askOpenAI(p):PROV==="gemini"?askGemini(p):askClaude(p)}};
 
 /* ---------- upload ---------- */
 var drop=$("drop");
