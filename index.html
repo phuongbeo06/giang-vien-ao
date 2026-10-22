@@ -21,8 +21,6 @@ h1{font-size:1.5rem;margin:0 0 4px}
 .drop.over,.drop:hover{border-color:var(--accent)}
 .drop b{display:block;font-size:1.1rem;margin-bottom:4px}
 .drop span{color:var(--muted);font-size:.92rem}
-input[type="text"], input[type="password"]{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);width:100%}
-.api-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
 button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:8px 14px}
 button.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
 button:disabled{opacity:.5;cursor:default}
@@ -80,21 +78,24 @@ svg.m .fonly,svg.f .monly{display:none}
 .sb{font-size:.85rem;opacity:.8}
 .recbox{background:var(--bg);padding:8px;border-radius:12px}
 a.dl{display:inline-block;margin-top:8px;padding:8px 14px;border-radius:10px;background:var(--accent);color:var(--accent-ink);text-decoration:none;font-weight:600}
+.kin{width:100%;margin-top:6px;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>🎓 Giảng viên ảo (Hỗ trợ Universal API & AI Voice)</h1>
-  <p class="sub">Tải PDF lên, giảng viên sẽ giảng lại nội dung lưu loát như người thật.</p>
+  <h1>🎓 Giảng viên ảo</h1>
+  <p class="sub">Tải PDF lên, giảng viên sẽ giảng lại nội dung theo từng bài, dễ hiểu như đang đứng lớp.</p>
 
   <div id="up">
     <div class="card" style="margin-bottom:16px">
-      <label><b>API Key:</b><br><input id="key" type="password" placeholder="sk-..." autocomplete="off"></label>
-      <div class="api-grid">
-        <label><b>Base URL:</b><br><input id="apiUrl" type="text" value="https://api.openai.com/v1/chat/completions" placeholder="https://api.openai.com/v1/chat/completions"></label>
-        <label><b>Tên Model:</b><br><input id="apiModel" type="text" value="gpt-4o-mini" placeholder="gpt-4o-mini"></label>
+      <label><b>Dùng dịch vụ AI nào để soạn bài giảng?</b><br>
+        <select id="prov" style="margin-top:6px"><option value="anthropic">Anthropic (Claude)</option><option value="openai">OpenAI</option></select></label>
+      <div id="box_a" style="margin-top:12px"><label><b>Khóa API Anthropic</b><br><input id="key" class="kin" type="password" placeholder="sk-ant-..." autocomplete="off"></label></div>
+      <div id="box_o" class="hide" style="margin-top:12px">
+        <label><b>Khóa API OpenAI</b><br><input id="okey" class="kin" type="password" placeholder="sk-..." autocomplete="off"></label>
+        <label style="display:block;margin-top:10px"><b>Tên model OpenAI</b> <span class="msg" style="display:inline">(có thể sửa)</span><br><input id="omodel" class="kin" list="omodels" autocomplete="off"><datalist id="omodels"><option value="gpt-5.6-sol"><option value="gpt-5.6-terra"><option value="gpt-5.6-luna"><option value="gpt-6-astra"></datalist></label>
       </div>
-      <p class="msg">Hỗ trợ mọi API tương thích OpenAI (OpenAI, DeepSeek, OpenRouter, Groq...). Dữ liệu gửi thẳng từ trình duyệt tới API của bạn.</p>
+      <p class="msg" id="keynote"></p>
     </div>
     <label class="drop" id="drop">
       <input id="file" type="file" accept="application/pdf" hidden>
@@ -106,6 +107,7 @@ a.dl{display:inline-block;margin-top:8px;padding:8px 14px;border-radius:10px;bac
       <p class="msg" id="status"></p>
     </div>
     <p class="msg err hide" id="err"></p>
+    <p style="margin:14px 0 0"><button id="imp_up">📂 Mở kịch bản JSON đã tải</button></p>
     <div class="card hide" id="saved" style="margin-top:16px"><h3 style="margin:0 0 10px;font-size:1rem">Bài giảng đã lưu trên máy này</h3><div id="savedlist"></div></div>
   </div>
 
@@ -145,10 +147,12 @@ a.dl{display:inline-block;margin-top:8px;padding:8px 14px;border-radius:10px;bac
         <button id="rec">⏺ Ghi video để tải</button>
       </div>
       <div class="opts">
-        <label>Động cơ đọc: <select id="ttsEngine"><option value="openai">Giọng AI mượt mà (Tốn phí API)</option><option value="web">Giọng hệ điều hành (Miễn phí)</option></select></label>
-        <label>Giọng: <select id="voice"></select></label>
-        <label>Tốc độ: <select id="rate"><option value="0.85">Chậm</option><option value="1" selected>Vừa</option><option value="1.15">Nhanh</option></select></label>
+        <label>Giảng viên <select id="who"><option value="m">Thầy</option><option value="f">Cô</option></select></label>
+        <label>Giọng <select id="voice"></select></label>
+        <label>Nghỉ giữa câu <select id="gap"><option value="250">Ngắn</option><option value="500" selected>Vừa</option><option value="900">Dài</option></select></label>
+        <label>Tốc độ <select id="rate"><option value="0.75">Chậm</option><option value="0.92" selected>Vừa</option><option value="1.1">Nhanh</option></select></label>
         <button id="dl_script" style="margin-left:auto;font-size:0.9rem;padding:6px 12px">💾 Tải kịch bản JSON</button>
+        <button id="imp" style="font-size:0.9rem;padding:6px 12px">📂 Mở kịch bản JSON</button>
       </div>
       <p class="msg" id="vmsg"></p>
       <p class="msg" id="recmsg"></p>
@@ -158,32 +162,21 @@ a.dl{display:inline-block;margin-top:8px;padding:8px 14px;border-radius:10px;bac
   </div>
 </div>
 
+<input type="file" id="impfile" accept=".json,application/json" hidden>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 (function(){
 var $=function(id){return document.getElementById(id)};
 var lessons=[],cur={l:0,s:0},playing=false,token=0,sentIdx=0,sentences=[],sample=null,busy=false;
 var synth=window.speechSynthesis||null,voices=[];
-var currentAudio = null; // Quản lý audio của OpenAI TTS
 var CHUNK=9000,MAXCHUNK=10,docName="",sentOrig=[],lastOrig=[],sentStart=0,T={items:[],total:0},seekWas=false;
-
-// Lưu cài đặt vào LocalStorage
-var keys = ["ak", "apiUrl", "apiModel"];
-keys.forEach(k => {
-    var v = localStorage.getItem(k);
-    if(v) $(k === "ak" ? "key" : k).value = v;
-});
-$("key").addEventListener("input", function(){ localStorage.setItem("ak", this.value.trim()) });
-$("apiUrl").addEventListener("input", function(){ localStorage.setItem("apiUrl", this.value.trim()) });
-$("apiModel").addEventListener("input", function(){ localStorage.setItem("apiModel", this.value.trim()) });
-
 function libGet(){try{return JSON.parse(localStorage.getItem("gv_lib")||"[]")}catch(e){return[]}}
 function libSet(a){try{localStorage.setItem("gv_lib",JSON.stringify(a));return true}catch(e){return false}}
 function saveDoc(){
   if(!docName||!lessons.length)return;
   var a=libGet().filter(function(x){return x.name!==docName});
   a.unshift({name:docName,date:Date.now(),lessons:lessons});
-  if(!libSet(a))showErr("Không lưu được vì bộ nhớ đầy.");
+  if(!libSet(a))showErr("Không lưu được vì bộ nhớ trình duyệt đã đầy. Hãy xóa bớt bài giảng cũ.");
   renderSaved();
 }
 function renderSaved(){
@@ -205,40 +198,56 @@ function renderSaved(){
   });
 }
 
-if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-
-sample={json:async function(p){
-  var apiKey = $("key").value.trim();
-  var url = $("apiUrl").value.trim() || "https://api.openai.com/v1/chat/completions";
-  var model = $("apiModel").value.trim() || "gpt-4o-mini";
-  
-  var r=await fetch(url,{
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json",
-      "Authorization": apiKey ? "Bearer " + apiKey : ""
-    },
-    body:JSON.stringify({
-      model: model,
-      messages:[
-        {role:"system", content:"Bạn phải trả về một đối tượng JSON hợp lệ theo đúng cấu trúc được yêu cầu."},
-        {role:"user", content:p}
-      ],
-      temperature: 0.2
-    })
-  });
-  if(!r.ok){var er=new Error("API Error "+r.status);er.status=r.status;throw er}
+if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";}
+var KEY="",OKEY="",PROV="anthropic",OMODEL="gpt-5.6-sol",lastErr=null;
+try{KEY=localStorage.getItem("ak")||"";OKEY=localStorage.getItem("ok")||"";PROV=localStorage.getItem("prov")||"anthropic";OMODEL=localStorage.getItem("om")||OMODEL}catch(e){}
+if(PROV!=="openai")PROV="anthropic";
+function store(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function curKey(){return PROV==="openai"?OKEY:KEY}
+function provName(){return PROV==="openai"?"OpenAI":"Anthropic"}
+function syncProv(){
+  $("box_a").classList.toggle("hide",PROV==="openai");
+  $("box_o").classList.toggle("hide",PROV!=="openai");
+  $("keynote").textContent=PROV==="openai"
+    ?"Khóa chỉ lưu trong trình duyệt của bạn và gửi thẳng tới OpenAI để soạn bài giảng. Lấy khóa tại platform.openai.com (có tính phí theo lượt dùng). Nếu OpenAI đổi tên model, bạn chỉ cần sửa ô tên model."
+    :"Khóa chỉ lưu trong trình duyệt của bạn và gửi thẳng tới Anthropic để soạn bài giảng. Lấy khóa tại console.anthropic.com (có tính phí theo lượt dùng).";
+}
+$("key").value=KEY;$("okey").value=OKEY;$("omodel").value=OMODEL;$("prov").value=PROV;syncProv();
+$("prov").onchange=function(){PROV=this.value==="openai"?"openai":"anthropic";store("prov",PROV);syncProv()};
+$("key").addEventListener("input",function(){KEY=this.value.trim();store("ak",KEY)});
+$("okey").addEventListener("input",function(){OKEY=this.value.trim();store("ok",OKEY)});
+$("omodel").addEventListener("input",function(){OMODEL=this.value.trim()||"gpt-5.6-sol";store("om",OMODEL)});
+function parseJson(t){
+  var m=String(t).match(/\{[\s\S]*\}/);
+  if(!m)throw new Error("AI không trả về định dạng JSON hợp lệ.");
+  return JSON.parse(m[0]);
+}
+async function httpErr(r){
+  var m="";try{var j=await r.json();m=(j&&j.error&&j.error.message)||""}catch(e){}
+  var er=new Error("API "+r.status+(m?": "+m:""));er.status=r.status;er.code=r.status===429?"rate_limited":"http";return er;
+}
+async function askClaude(p){
+  var r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-5-5",max_tokens:8000,messages:[{role:"user",content:p}]})});
+  if(!r.ok)throw await httpErr(r);
   var d=await r.json();
-  var t = d.choices[0].message.content;
-  var jsonMatch = t.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("AI không trả về định dạng JSON hợp lệ.");
-  return JSON.parse(jsonMatch[0]);
-}};
+  return parseJson(d.content.map(function(x){return x.text||""}).join("").trim());
+}
+async function askOpenAI(p){
+  var body={model:OMODEL,messages:[{role:"user",content:p}],response_format:{type:"json_object"}};
+  function call(){return fetch("https://api.openai.com/v1/chat/completions",{method:"POST",headers:{"content-type":"application/json","authorization":"Bearer "+OKEY},body:JSON.stringify(body)})}
+  var r=await call();
+  if(r.status===400){delete body.response_format;r=await call()}
+  if(!r.ok)throw await httpErr(r);
+  var d=await r.json(),c=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content;
+  return parseJson((c||"").trim());
+}
+sample={json:function(p){return PROV==="openai"?askOpenAI(p):askClaude(p)}};
 
+/* ---------- upload ---------- */
 var drop=$("drop");
 $("file").addEventListener("change",function(e){if(e.target.files[0])start(e.target.files[0])});
-["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over")}));
-["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over")}));
+["dragover","dragenter"].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.add("over")})});
+["dragleave","drop"].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.remove("over")})});
 drop.addEventListener("drop",function(e){var f=e.dataTransfer.files[0];if(f)start(f)});
 
 function setStatus(t,p){$("prog").classList.remove("hide");$("status").textContent=t;if(p!=null)$("barfill").style.width=p+"%"}
@@ -246,7 +255,7 @@ function showErr(t){var e=$("err");e.textContent=t;e.classList.remove("hide")}
 
 async function start(file){
   $("err").classList.add("hide");
-  if(!window.pdfjsLib) return showErr("Không tải được bộ đọc PDF.");
+  if(!window.pdfjsLib){return showErr("Không tải được bộ đọc PDF. Hãy kiểm tra kết nối mạng và thử lại.")}
   if(busy)return;busy=true;lessons=[];docName=file.name.replace(/\.pdf$/i,"");
   try{
     setStatus("Đang đọc file PDF…",3);
@@ -255,15 +264,18 @@ async function start(file){
     var text="";
     for(var i=1;i<=pdf.numPages;i++){
       var pg=await pdf.getPage(i),tc=await pg.getTextContent();
-      var pageText = tc.items.map(x=>x.str).join(" ");
+      
+      // CẢI TIẾN 2: Tối ưu đọc text từ PDF để nối từ liền mạch hơn
+      var pageText = tc.items.map(function(x){return x.str}).join(" ");
       text += pageText.replace(/\s+/g," ") + "\n";
+      
       setStatus("Đang đọc trang "+i+"/"+pdf.numPages+"…",3+Math.round(i/pdf.numPages*12));
     }
     text=text.replace(/[ \t]+/g," ").trim();
-    if(text.length<200){busy=false; $("prog").classList.add("hide"); return showErr("File dường như không có chữ.")}
-    if(!$("key").value.trim()){busy=false; $("prog").classList.add("hide"); return showErr("Hãy nhập API Key.")}
+    if(text.length<200){busy=false;$("prog").classList.add("hide");return showErr("File này gần như không có chữ chọn được, có thể là bản scan (ảnh chụp). Hãy thử file PDF có chữ bôi đen được.")}
+    if(!curKey()){busy=false;$("prog").classList.add("hide");return showErr("Hãy nhập khóa API "+provName()+" ở khung phía trên trước khi tải PDF.")}
     await generate(text);
-  }catch(e){showErr("Lỗi xử lý: "+(e.message||e));$("prog").classList.add("hide")}
+  }catch(e){showErr("Có lỗi khi xử lý: "+(e&&e.message?e.message:e));$("prog").classList.add("hide")}
   busy=false;
 }
 
@@ -284,8 +296,8 @@ async function generate(text){
     $("gen").textContent=opened?"Đang soạn tiếp phần "+(k+1)+"/"+total+"…":"";
     var data=null;
     for(var tr=0;tr<2&&!data;tr++){
-      try{data=await sample.json(prompt(chunks[k],k,total))}
-      catch(e){if(tr===1)failed++}
+      try{data=await sample.json(prompt(chunks[k],k,total),{modelTier:"default",cache:false})}
+      catch(e){lastErr=e;if(e&&e.status===401){tr=9;failed++}else if(e&&e.code==="rate_limited"){tr=9;failed++;}else if(tr===1)failed++}
     }
     if(data&&data.lessons&&data.lessons.length){
       data.lessons.forEach(function(L){
@@ -296,27 +308,41 @@ async function generate(text){
       if(!opened&&lessons.length){opened=true;openPlayer()}
     }
   }
-  if(!lessons.length){$("prog").classList.add("hide");return showErr("Không tạo được bài giảng. Kiểm tra cấu hình API và Model.")}
-  $("gen").textContent="Đã soạn xong "+lessons.length+" bài."+(failed?" Có vài phần bị lỗi bỏ qua.":"");
+  if(!lessons.length){$("prog").classList.add("hide");return showErr("Chưa soạn được bài giảng nào."+(lastErr&&lastErr.status===401?" Khóa API không hợp lệ.":lastErr&&lastErr.status===429?" Bị giới hạn lượt gọi, hãy thử lại sau.":lastErr?" Lỗi: "+lastErr.message+". Bạn thử lại hoặc dùng file ngắn hơn nhé.":""))}
+  var note=chunks.length>MAXCHUNK?" Tài liệu dài nên mới giảng "+MAXCHUNK+" phần đầu.":"";
+  if(failed)note+=" Có "+failed+" phần soạn lỗi nên bị bỏ qua.";
+  $("gen").textContent="Đã soạn xong "+lessons.length+" bài."+note;
 }
 
 function prompt(t,k,n){
-  return "Hãy đóng vai một giảng viên đại học, biến tài liệu sau thành 1-2 bài giảng (phần "+(k+1)+"/"+n+"). \n"+
-  "CHỈ XUẤT JSON HỢP LỆ THEO CẤU TRÚC: {\"lessons\":[{\"title\":\"...\",\"slides\":[{\"heading\":\"...\",\"points\":[\"...\"],\"script\":\"...\",\"terms\":[{\"w\":\"API\",\"say\":\"ây pi ai\"}],\"visual\":{\"type\":\"flow\",\"caption\":\"...\",\"items\":[{\"icon\":\"🙂\",\"label\":\"...\",\"sub\":\"...\",\"at\":1}]}}]}]}\n"+
-  "Quy tắc: script (lời giảng) tự nhiên như văn nói tiếng Việt (70-130 từ), giải thích dễ hiểu, points (2-4 ý chính ngắn). visual (hình minh họa) có type: flow/cycle/compare/icons. at: số thứ tự câu trong script bắt đầu nhắc tới mục đó (đếm từ 1). Không dùng markdown.\n\nTÀI LIỆU:\n"+t;
+  return "Bạn là một giảng viên đại học tận tâm, đang đứng lớp giảng cho sinh viên. Hãy biến đoạn tài liệu sau (phần "+(k+1)+"/"+n+") thành 1 đến 2 bài giảng bằng tiếng Việt, dễ hiểu cho người mới.\n"+
+  "Chỉ trả về JSON hợp lệ, không thêm chữ nào khác, đúng dạng: {\"lessons\":[{\"title\":\"...\",\"slides\":[{\"heading\":\"...\",\"points\":[\"...\"],\"script\":\"...\",\"terms\":[{\"w\":\"API\",\"say\":\"ây pi ai\"}],\"visual\":{\"type\":\"flow\",\"caption\":\"...\",\"items\":[{\"icon\":\"🙂\",\"label\":\"...\",\"sub\":\"...\",\"at\":1}]}}]}]}\n"+
+  "Quy tắc: mỗi bài 3 đến 5 slide, tổng cộng không quá 8 slide; heading ngắn gọn; points là 2 đến 4 ý chính ngắn gọn (mỗi ý dưới 15 từ) hiện trên bảng; script là lời giảng 70 đến 130 từ, nói tự nhiên như đang nói với sinh viên (có thể mở đầu bằng \"Các em\" hoặc \"Chúng ta\"), giải thích thuật ngữ bằng lời đơn giản, thêm ví dụ đời thường khi phù hợp, không đọc nguyên văn tài liệu, không dùng ký hiệu markdown, ký tự đặc biệt hay danh sách, viết số và đơn vị thành chữ dễ đọc thành tiếng. visual là hình minh họa vẽ bằng biểu tượng giúp hiểu nội dung slide đó: type là một trong flow (các bước nối tiếp), cycle (vòng lặp), compare (so sánh đúng 2 mục), icons (các ý rời rạc); caption dưới 10 từ; items từ 2 đến 5 mục, mỗi mục có icon là đúng 1 emoji sát nghĩa và cụ thể, label dưới 5 từ, sub (không bắt buộc) dưới 8 từ. Quan trọng: lời giảng phải nhắc đến từng mục của visual theo đúng thứ tự, mỗi mục ở một câu riêng, và at là số thứ tự câu (đếm từ 1, mỗi câu kết thúc bằng dấu chấm) trong script nơi giảng viên bắt đầu nhắc đến mục đó, để hình hiện ra đúng lúc đang giảng; hình chỉ minh họa đúng ý đang giảng, không thêm ý lạ. terms là danh sách mọi từ tiếng Anh, từ viết tắt, tên riêng nước ngoài hoặc ký hiệu có trong script kèm cách đọc phiên âm bằng chữ tiếng Việt để giọng đọc phát âm đúng, ví dụ w là API thì say là ây pi ai, w là machine learning thì say là mơ sin lơ ning; script vẫn giữ nguyên cách viết gốc; để mảng rỗng nếu không có. Không dùng dấu chấm trong số thập phân hay dấu chấm giữa câu ở từ viết tắt để tránh đếm sai câu. Giữ đúng nội dung tài liệu, không bịa thêm kiến thức không có trong đó.\n\nTÀI LIỆU:\n"+t;
 }
 
+/* ---------- player ---------- */
+
+// CẢI TIẾN 3: Cơ chế Keep-Alive cho Web Speech API để chống mất tiếng trên Chrome/Edge
 var keepAliveTimer = null;
-function clearKeepAlive() { if(keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null; } }
+function clearKeepAlive() {
+    if(keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null; }
+}
 function startKeepAlive() {
     clearKeepAlive();
     keepAliveTimer = setInterval(function() {
-        if (synth && synth.speaking && !synth.paused) { synth.pause(); synth.resume(); }
-    }, 12000);
+        if (synth && synth.speaking && !synth.paused) {
+            synth.pause();
+            synth.resume();
+        }
+    }, 12000); // Ngầm pause và resume mỗi 12 giây
 }
 
-function openPlayer(){ $("up").classList.add("hide"); $("player").classList.remove("hide"); updateVoicesList(); show(0,0); }
-function flat(){var a=[];lessons.forEach((L,li)=>L.slides.forEach((s,si)=>a.push([li,si])));return a}
+
+function openPlayer(){
+  $("up").classList.add("hide");$("player").classList.remove("hide");
+  loadVoices();show(0,0);
+}
+function flat(){var a=[];lessons.forEach(function(L,li){L.slides.forEach(function(s,si){a.push([li,si])})});return a}
 function pos(){var f=flat();for(var i=0;i<f.length;i++)if(f[i][0]===cur.l&&f[i][1]===cur.s)return i;return 0}
 
 function renderList(){
@@ -324,8 +350,9 @@ function renderList(){
   lessons.forEach(function(L,i){
     var b=document.createElement("button");b.className="les"+(i===cur.l?" cur":"");
     b.textContent=(i+1)+". "+L.title;
-    var sm=document.createElement("small");var ld=0;T.items.forEach(x=>{if(x.l===i)ld+=x.dur});sm.textContent=L.slides.length+" slide · ≈"+fmt(ld);b.appendChild(sm);
-    b.onclick=function(){show(i,0);play(500)}; box.appendChild(b);
+    var sm=document.createElement("small");var ld=0;T.items.forEach(function(x){if(x.l===i)ld+=x.dur});sm.textContent=L.slides.length+" slide · ≈"+fmt(ld);b.appendChild(sm);
+    b.onclick=function(){show(i,0);play(1000)};
+    box.appendChild(b);
   });
   updateTime();
 }
@@ -336,14 +363,15 @@ function show(l,s){
   $("tag").textContent="Bài "+(l+1)+": "+L.title+" · Slide "+(s+1)+"/"+L.slides.length;
   $("head").textContent=S.heading;
   var ul=$("pts");ul.innerHTML="";
-  (S.points||[]).forEach(p=>{var li=document.createElement("li");li.textContent=p;ul.appendChild(li)});
+  (S.points||[]).forEach(function(p){var li=document.createElement("li");li.textContent=p;ul.appendChild(li)});
   renderVisual(S.visual);sentences=split(S.script);sentOrig=lastOrig;sentIdx=0;
-  $("cap").textContent="Bấm “Bắt đầu giảng” để nghe.";
-  renderList(); if(!playing)setPlayLabel();
+  $("cap").textContent="Bấm “Bắt đầu giảng” để nghe giảng viên giảng slide này.";
+  renderList();
+  if(!playing)setPlayLabel();
 }
 function split(t){
   var m=String(t).replace(/\s+/g," ").replace(/([.!?…])\s+/g,"$1\u0001").split("\u0001"),out=[],orig=[];
-  m.forEach((x,oi)=>{
+  m.forEach(function(x,oi){
     x=x.trim();if(!x)return;
     while(x.length>170){var c=x.lastIndexOf(", ",170);if(c<60)c=x.lastIndexOf(" ",170);if(c<1)break;out.push(x.slice(0,c+1).trim());orig.push(oi);x=x.slice(c+1).trim()}
     out.push(x);orig.push(oi);
@@ -366,99 +394,82 @@ function setPlayLabel(){$("play").textContent=playing?"⏸ Tạm dừng":(sentId
 function talk(on){$("stage").classList.toggle("talking",on)}
 
 function stop(){
-  playing=false;token++;if(synth)synth.cancel();
-  if(currentAudio){currentAudio.pause(); currentAudio=null;}
-  talk(false); clearKeepAlive();
+  playing=false;token++;if(synth)synth.cancel();talk(false);
+  clearKeepAlive();
 }
 function play(delay){
   if(playing)return;playing=true;setPlayLabel();
-  var tk=++token; startKeepAlive();
+  var tk=++token;
+  startKeepAlive();
   if(delay){talk(false);$("cap").textContent="";setTimeout(function(){step(tk)},delay)}else step(tk);
 }
 function pause(){
-  playing=false;token++;
-  if(synth)synth.cancel();
-  if(currentAudio){currentAudio.pause(); currentAudio=null;} // Pause AI audio (will restart sentence)
-  talk(false);setPlayLabel(); clearKeepAlive();
+  playing=false;token++;if(synth)synth.cancel();talk(false);setPlayLabel();
+  clearKeepAlive();
 }
 
 function step(tk){
   if(tk!==token||!playing)return;
   if(sentIdx>=sentences.length){return nextSlide(true)}
-  queueFrom(tk);
-}
-
-// Hàm đọc xử lý chọn nguồn TTS
-async function queueFrom(tk){
-  var txt=sentences[sentIdx],n=sentences.length;
+  if(synth){queueFrom(tk);return}
+  var txt=sentences[sentIdx];
   $("cap").textContent=txt;sentStart=performance.now();reveal();talk(true);
-  
-  var engine = $("ttsEngine").value;
-  var slideInfo = lessons[cur.l].slides[cur.s];
-  
-  if (engine === "openai") {
-    var apiKey = $("key").value.trim();
-    if(!apiKey) { pause(); return showErr("Hãy nhập API Key để dùng giọng AI mượt mà, hoặc chuyển sang Giọng hệ điều hành."); }
-    var baseUrl = $("apiUrl").value.trim().replace(/\/chat\/completions$/, "");
-    try {
-        var r = await fetch(baseUrl + "/audio/speech", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + apiKey },
-            body: JSON.stringify({ model: "tts-1", input: txt, voice: $("voice").value || "nova" })
-        });
-        if(!r.ok) throw new Error("TTS fail");
-        var blob = await r.blob();
-        var url = URL.createObjectURL(blob);
-        currentAudio = new Audio(url);
-        currentAudio.playbackRate = parseFloat($("rate").value)||1;
-        currentAudio.onended = () => {
-            if(tk!==token||!playing)return;
-            URL.revokeObjectURL(url); currentAudio = null;
-            sentIdx++; talk(false);
-            if(sentIdx>=n) step(tk);
-            else setTimeout(()=>step(tk), 300);
-        };
-        currentAudio.onerror = () => { currentAudio=null; fallbackWebSpeech(txt, slideInfo, tk, n); };
-        currentAudio.play();
-    } catch(e) {
-        fallbackWebSpeech(txt, slideInfo, tk, n);
-    }
-  } else {
-    fallbackWebSpeech(txt, slideInfo, tk, n);
-  }
-}
-
-function fallbackWebSpeech(txt, slide, tk, n) {
-  if(!synth) { 
-      setTimeout(()=>{ if(tk===token&&playing){sentIdx++; step(tk);} }, txt.length*70); 
-      return; 
-  }
-  var u=new SpeechSynthesisUtterance(pron(txt, slide));
-  var v=pickVoice(); if(v){u.voice=v;u.lang=v.lang}else u.lang="vi-VN";
-  u.rate=parseFloat($("rate").value)||1;
-  u.onend = function() {
+  speak(txt,tk,function(){
     if(tk!==token||!playing)return;
-    sentIdx++; talk(false);
-    if(sentIdx>=n) step(tk); else setTimeout(()=>step(tk), 400);
-  };
-  u.onerror = function(e){ if(e&&e.error!=="canceled"){sentIdx++; step(tk);} };
-  synth.speak(u);
+    sentIdx++;step(tk);
+  });
 }
-
 var LET={A:"ây",B:"bi",C:"xi",D:"đi",E:"i",F:"ép",G:"di",H:"ếch",I:"ai",J:"giây",K:"kây",L:"eo",M:"em",N:"en",O:"âu",P:"pi",Q:"kiu",R:"a",S:"ét",T:"ti",U:"diu",V:"vi",W:"đắp liu",X:"ếch",Y:"quai",Z:"dét"};
+var ACR={RAM:"ram",NASA:"na sa",ASEAN:"a xê an",UNESCO:"diu nét xcô",COVID:"cô vít",WIFI:"oai phai"};
+function esc(x){return x.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}
 function pron(txt,slide){
   var out=txt,terms=(slide&&slide.terms)||[];
-  terms.filter(t=>t&&t.w&&t.say).forEach(t=>{ try{out=out.replace(new RegExp("(^|[^\\p{L}\\p{N}])("+t.w+")(?![\\p{L}\\p{N}])","gu"), (m,p)=>p+t.say)}catch(e){} });
+  terms.filter(function(t){return t&&t.w&&t.say}).sort(function(a,b){return String(b.w).length-String(a.w).length}).forEach(function(t){
+    try{out=out.replace(new RegExp("(^|[^\\p{L}\\p{N}])("+esc(String(t.w))+")(?![\\p{L}\\p{N}])","gu"),function(m,p){return p+t.say})}catch(e){}
+  });
+  out=out.replace(/Wi-?Fi/gi,"oai phai");
+  out=out.replace(/(^|[^\p{L}\p{N}])([A-Z]{2,6})(?![\p{L}\p{N}])/gu,function(m,p,w){
+    if(/^[IVX]+$/.test(w))return m;
+    if(ACR[w])return p+ACR[w];
+    return p+w.split("").map(function(c){return LET[c]}).join(" ");
+  });
   return out;
 }
-
+function gapMs(){return parseInt($("gap").value,10)||500}
+function queueFrom(tk){
+  var txt=sentences[sentIdx],n=sentences.length,fired=false;
+  $("cap").textContent=txt;sentStart=performance.now();reveal();talk(true);
+  var u=new SpeechSynthesisUtterance(pron(txt,lessons[cur.l].slides[cur.s])),v=pickVoice();
+  if(v){u.voice=v;u.lang=v.lang}else u.lang="vi-VN";
+  u.rate=rate();
+  function fin(){
+    if(fired||tk!==token||!playing)return;fired=true;
+    sentIdx++;
+    if(sentIdx>=n){step(tk);return}
+    talk(false);
+    setTimeout(function(){step(tk)},gapMs());
+  }
+  u.onend=fin;
+  u.onerror=function(e){if(e&&(e.error==="canceled"||e.error==="interrupted"))return;fin()};
+  synth.speak(u);
+}
+function speak(txt,tk,done){
+  var fired=false;function fin(){if(fired)return;fired=true;done()}
+  if(!synth){setTimeout(fin,Math.max(1200,txt.length*70)/rate());return}
+  var u=new SpeechSynthesisUtterance(txt);
+  var v=pickVoice();if(v){u.voice=v;u.lang=v.lang}else u.lang="vi-VN";
+  u.rate=rate();
+  u.onend=fin;u.onerror=function(){if(tk===token)setTimeout(fin,Math.max(1000,txt.length*60))};
+  synth.speak(u);
+}
+function rate(){return parseFloat($("rate").value)||1}
 function fmt(s){s=Math.max(0,Math.round(s));return Math.floor(s/60)+":"+("0"+s%60).slice(-2)}
-function est(t){var w=String(t).split(/\s+/).filter(Boolean).length;return w/2.6/(parseFloat($("rate").value)||1)+0.5}
+function est(t){var w=String(t).split(/\s+/).filter(Boolean).length;return w/2.6/rate()+gapMs()/1000}
 function buildTimes(){
   var t=0,arr=[];
-  flat().forEach(p=>{
+  flat().forEach(function(p){
     var S=lessons[p[0]].slides[p[1]],ss=split(S.script),cum=[],a=0;
-    ss.forEach(x=>{cum.push(a);a+=est(x)});a+=1;
+    ss.forEach(function(x){cum.push(a);a+=est(x)});a+=1;
     arr.push({l:p[0],s:p[1],start:t,cum:cum,dur:a});t+=a;
   });
   T={items:arr,total:t};
@@ -471,7 +482,8 @@ function curTime(){
 }
 function updateTime(){
   if(!T.items.length||$("player").classList.contains("hide"))return;
-  var c=curTime(),sk=$("seek"); sk.max=Math.ceil(T.total);
+  var c=curTime(),sk=$("seek");
+  sk.max=Math.ceil(T.total);
   if(document.activeElement!==sk)sk.value=Math.round(c);
   $("time").textContent=fmt(c)+" / ≈"+fmt(T.total);
 }
@@ -483,7 +495,7 @@ function renderVisual(v){
   var items=v.items.slice(0,type==="compare"?2:5);
   if(v.caption)box.appendChild(mk("p","vcap",String(v.caption)));
   var row=mk("div","vrow"),lastAt="";
-  items.forEach((it,i)=>{
+  items.forEach(function(it,i){
     var w=mk("div","vw"),a0=Number(it.at);w.setAttribute("data-at",a0>0?String(Math.floor(a0)-1):"");lastAt=w.getAttribute("data-at");
     if(i>0&&type!=="icons")w.appendChild(mk("span","ar",type==="compare"?"VS":"→"));
     var card=mk("div","vi");
@@ -504,107 +516,142 @@ function pickMime(){
 }
 async function startRec(){
   if(recording){stopRec();return}
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getDisplayMedia||!window.MediaRecorder)return recMsg("Chưa hỗ trợ ghi video trên trình duyệt này.",true);
-  try{ recStream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:30},audio:true,preferCurrentTab:true,selfBrowserSurface:"include"}); }
-  catch(e){return recMsg("Hủy ghi hình.",true)}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getDisplayMedia||!window.MediaRecorder)return recMsg("Trình duyệt này chưa hỗ trợ ghi video. Hãy dùng Chrome hoặc Edge trên máy tính.",true);
+  if($("gen").textContent.indexOf("Đang soạn")===0)return recMsg("Bài giảng còn đang được soạn. Hãy chờ soạn xong toàn bộ rồi mới ghi video.",true);
+  if(!lessons.length)return;
+  try{
+    recStream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:30},audio:true,preferCurrentTab:true,selfBrowserSurface:"include"});
+  }catch(e){return recMsg("Không bắt đầu ghi được (bạn đã hủy hoặc trình duyệt chặn). Nếu đang mở trong claude.ai thì khung này có thể bị chặn ghi màn hình, hãy dùng bản GitHub Pages.",true)}
   var vt=recStream.getVideoTracks()[0];
   try{if(window.CropTarget&&vt.cropTo){var ct=await CropTarget.fromElement($("recbox"));await vt.cropTo(ct)}}catch(e){}
+  if(!recStream.getAudioTracks().length){recStream.getTracks().forEach(function(t){t.stop()});recStream=null;return recMsg("Chưa có âm thanh để ghi. Khi hộp chia sẻ hiện lên, hãy chọn thẻ hiện tại và bật Chia sẻ âm thanh của thẻ.",true)}
   recMime=pickMime();recChunks=[];
-  recorder=new MediaRecorder(recStream,recMime?{mimeType:recMime}:{})
-  recorder.ondataavailable=e=>{if(e.data&&e.data.size)recChunks.push(e.data)};
-  recorder.onstop=finishRec; vt.onended=()=>stopRec();
-  recorder.start(1000); recording=true;$("rec").textContent="⏹ Dừng và lưu";$("recout").classList.add("hide");
-  recMsg("Đang ghi video..."); show(0,0);play(1500);
+  try{recorder=new MediaRecorder(recStream,recMime?{mimeType:recMime,videoBitsPerSecond:3000000}:{})}
+  catch(e){recStream.getTracks().forEach(function(t){t.stop()});recStream=null;return recMsg("Không khởi động được bộ ghi video: "+e.message,true)}
+  recorder.ondataavailable=function(e){if(e.data&&e.data.size)recChunks.push(e.data)};
+  recorder.onstop=finishRec;
+  vt.onended=function(){stopRec()};
+  recorder.start(1000);
+  recording=true;$("rec").textContent="⏹ Dừng và lưu video";$("recout").classList.add("hide");
+  recMsg("Đang ghi video. Đừng chuyển sang thẻ khác. Video sẽ tự lưu khi giảng hết bài.");
+  show(0,0);play(1500);
 }
 function stopRec(){if(recorder&&recorder.state!=="inactive")recorder.stop();else if(recording)finishRec()}
 function finishRec(){
-  recording=false;recorder=null;$("rec").textContent="⏺ Ghi video";
-  if(recStream){recStream.getTracks().forEach(t=>t.stop());recStream=null} stop();
+  recording=false;recorder=null;$("rec").textContent="⏺ Ghi video để tải";
+  if(recStream){recStream.getTracks().forEach(function(t){t.stop()});recStream=null}
+  stop();
+  if(!recChunks.length)return recMsg("Chưa ghi được dữ liệu nào.",true);
   var type=(recMime||"video/webm").split(";")[0],blob=new Blob(recChunks,{type:type});
-  if(recUrl)URL.revokeObjectURL(recUrl); recUrl=URL.createObjectURL(blob);
-  $("recvid").src=recUrl; var a=$("recdl");a.href=recUrl;a.download=(docName||"bai-giang")+(/mp4/.test(type)?".mp4":".webm");
-  $("recout").classList.remove("hide"); recMsg("Đã ghi xong.");
+  if(recUrl)URL.revokeObjectURL(recUrl);
+  recUrl=URL.createObjectURL(blob);
+  $("recvid").src=recUrl;
+  var a=$("recdl");a.href=recUrl;a.download=(docName||"bai-giang")+(/mp4/.test(type)?".mp4":".webm");
+  $("recout").classList.remove("hide");
+  recMsg("Đã ghi xong. Hãy mở thử video xem có tiếng giảng không rồi bấm tải xuống.");
 }
-$("rec").onclick=startRec; setInterval(updateTime,250);
+$("rec").onclick=startRec;
+setInterval(updateTime,250);
 
 function nextSlide(auto){
   var f=flat(),i=pos();
   if(i+1>=f.length){
     var more=$("gen").textContent.indexOf("Đang soạn")===0;
     stop();sentIdx=0;setPlayLabel();if(recording)setTimeout(stopRec,1200);
-    $("cap").textContent=more?"Đang soạn bài tiếp theo, vui lòng đợi...":"Hết bài giảng. Cảm ơn các bạn!"; return;
+    $("cap").textContent=more?"Hết phần đã soạn. Bài tiếp theo đang được soạn, vui lòng chờ một chút rồi bấm “Tiếp”.":"Hết bài giảng rồi. Cảm ơn các em đã lắng nghe!";
+    return;
   }
-  var n=f[i+1];show(n[0],n[1]); if(auto)play(600)
+  var n=f[i+1];show(n[0],n[1]);
+  if(auto)play(1000)
 }
 function prevSlide(){var f=flat(),i=pos();if(i>0){var p=f[i-1];show(p[0],p[1])}}
 
 $("play").onclick=function(){playing?pause():play()};
-$("next").onclick=function(){var was=playing;nextSlide(false);if(was)play(600)};
-$("prev").onclick=function(){var was=playing;prevSlide();if(was)play(600)};
+$("next").onclick=function(){var was=playing;nextSlide(false);if(was)play(1000)};
+$("prev").onclick=function(){var was=playing;prevSlide();if(was)play(1000)};
 $("again").onclick=function(){var l=cur.l,s=cur.s;show(l,s);play()};
 $("seek").oninput=function(){
-  if(!T.items.length)return; if(playing)seekWas=true;
+  if(!T.items.length)return;
+  if(playing)seekWas=true;
   var t=+this.value,it=T.items[T.items.length-1];
   for(var i=0;i<T.items.length;i++){if(t<T.items[i].start+T.items[i].dur){it=T.items[i];break}}
   var k=0;for(var j=0;j<it.cum.length;j++){if(t-it.start>=it.cum[j])k=j}
-  show(it.l,it.s);sentIdx=k; if(k>0){$("cap").textContent=sentences[k];reveal()} updateTime();
+  show(it.l,it.s);sentIdx=k;
+  if(k>0){$("cap").textContent=sentences[k];reveal()}
+  updateTime();
 };
 $("seek").onchange=function(){if(seekWas){seekWas=false;play(500)}};
-$("rate").onchange=function(){buildTimes();updateTime();if(playing){var tk=++token;if(synth)synth.cancel();if(currentAudio){currentAudio.pause(); currentAudio=null;}step(tk)}};
-$("voice").onchange=function(){if(playing){var tk=++token;if(synth)synth.cancel();if(currentAudio){currentAudio.pause(); currentAudio=null;}step(tk)}};
+$("rate").onchange=function(){buildTimes();updateTime();if(playing){var tk=++token;if(synth)synth.cancel();step(tk)}};
+$("voice").onchange=function(){if(playing){var tk=++token;if(synth)synth.cancel();step(tk)}};
+$("gap").onchange=function(){buildTimes();updateTime()};
+$("who").onchange=function(){$("tsvg").setAttribute("class",this.value)};
+$("reset").onclick=function(){stop();lessons=[];$("player").classList.add("hide");$("up").classList.remove("hide");$("prog").classList.add("hide");$("file").value="";$("list").innerHTML="";renderSaved()};
 
-// Xử lý Cập nhật danh sách giọng đọc theo Engine
-function updateVoicesList() {
-    var engine = $("ttsEngine").value;
-    var sel = $("voice");
-    sel.innerHTML = "";
-    
-    if (engine === "openai") {
-        $("vmsg").textContent = "Giọng AI OpenAI TTS rất tự nhiên, có ngắt nghỉ cảm xúc (sẽ trừ phí vào API Key của bạn).";
-        const openaiVoices = [
-            {id: "nova", name: "Nova (Nữ, truyền cảm)"},
-            {id: "alloy", name: "Alloy (Trung tính)"},
-            {id: "shimmer", name: "Shimmer (Nữ, rõ ràng)"},
-            {id: "echo", name: "Echo (Nam, trầm ấm)"},
-            {id: "onyx", name: "Onyx (Nam, mạnh mẽ)"},
-            {id: "fable", name: "Fable (Nam, kể chuyện)"}
-        ];
-        openaiVoices.forEach(v => {
-            var o = document.createElement("option");
-            o.value = v.id; o.textContent = v.name;
-            sel.appendChild(o);
-        });
-    } else {
-        loadWebVoices();
-    }
-}
-$("ttsEngine").onchange = function() {
-    updateVoicesList();
-    if(playing){ var tk=++token; stop(); step(tk); }
+// CẢI TIẾN 4: Thêm sự kiện cho nút tải kịch bản JSON
+$("dl_script").onclick=function(){
+  if(!lessons||!lessons.length){$("vmsg").textContent="Chưa có bài giảng nào được tạo.";return}
+  var blob=new Blob([JSON.stringify(lessons,null,2)],{type:"application/json"}),u=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=u;a.download=(docName||"bai-giang")+".json";document.body.appendChild(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(u)},2000);
 };
+function normLessons(d){
+  if(d&&!Array.isArray(d)&&Array.isArray(d.lessons))d=d.lessons;
+  if(!Array.isArray(d))return [];
+  var out=[];
+  d.forEach(function(L){
+    if(!L||!Array.isArray(L.slides))return;
+    var sl=[];
+    L.slides.forEach(function(x){
+      if(!x||typeof x.heading!=="string"||typeof x.script!=="string"||!x.script.trim())return;
+      var o={heading:x.heading,script:x.script,points:Array.isArray(x.points)?x.points.map(String):[]};
+      if(x.visual&&typeof x.visual==="object"&&Array.isArray(x.visual.items))o.visual=x.visual;
+      if(Array.isArray(x.terms))o.terms=x.terms;
+      sl.push(o);
+    });
+    if(sl.length)out.push({title:String(L.title||"Bài "+(out.length+1)),slides:sl});
+  });
+  return out;
+}
+function importJson(f){
+  if(!f)return;
+  var r=new FileReader();
+  r.onload=function(){
+    var ls=[];
+    try{ls=normLessons(JSON.parse(r.result))}catch(e){}
+    if(!ls.length){
+      var m="File này không đúng định dạng kịch bản của trang (cần file JSON do nút Tải kịch bản JSON tạo ra).";
+      if($("up").classList.contains("hide"))$("vmsg").textContent=m;else showErr(m);
+      return;
+    }
+    if(recording)return;
+    stop();lessons=ls;docName=f.name.replace(/\.json$/i,"");
+    $("err").classList.add("hide");
+    saveDoc();openPlayer();
+    $("gen").textContent="Đã mở kịch bản từ file JSON.";
+  };
+  r.onerror=function(){showErr("Không đọc được file.")};
+  r.readAsText(f);
+}
+$("impfile").onchange=function(){var f=this.files[0];this.value="";importJson(f)};
+$("imp").onclick=function(){$("impfile").click()};
+$("imp_up").onclick=function(){$("impfile").click()};
 
-function loadWebVoices(){
-  if(!synth){$("vmsg").textContent="Trình duyệt không hỗ trợ.";return}
+/* ---------- voices ---------- */
+function loadVoices(){
+  if(!synth){$("vmsg").textContent="Trình duyệt này không hỗ trợ giọng đọc. Giảng viên vẫn chạy theo phụ đề.";return}
   var all=synth.getVoices();
-  var vi=all.filter(v=>/^vi/i.test(v.lang));
-  function score(v){return(/natural/i.test(v.name)?4:0)+(/microsoft/i.test(v.name)?2:0)+(/google/i.test(v.name)?1:0)}
-  voices=(vi.length?vi:all).slice().sort((a,b)=>score(b)-score(a));
-  var sel=$("voice"); sel.innerHTML="";
-  voices.forEach((v,i)=>{var o=document.createElement("option");o.value=i;o.textContent=v.name;sel.appendChild(o)});
-  $("vmsg").textContent=!vi.length?"Máy bạn chưa có giọng tiếng Việt.":(!vi.some(v=>/natural/i.test(v.name))?"Mẹo: Dùng Edge để có giọng Natural hay hơn.":"");
+  var vi=all.filter(function(v){return /^vi/i.test(v.lang)});
+  function score(v){var n=v.name;return(/natural/i.test(n)?4:0)+(/microsoft/i.test(n)?2:0)+(/google/i.test(n)?1:0)}
+  voices=(vi.length?vi:all).slice().sort(function(a,b){return score(b)-score(a)});
+  var sel=$("voice"),keep=sel.value;sel.innerHTML="";
+  voices.forEach(function(v,i){var o=document.createElement("option");o.value=i;o.textContent=v.name+" ("+v.lang+")";sel.appendChild(o)});
+  if(keep)sel.value=keep;
+  $("vmsg").textContent=!vi.length?"Máy bạn chưa có giọng tiếng Việt, hãy cài giọng Vietnamese trong cài đặt hệ thống (hoặc dùng Chrome/Edge) để nghe chuẩn hơn.":(vi.some(function(v){return /natural/i.test(v.name)})?"":"Mẹo: mở trang bằng Microsoft Edge để có giọng tiếng Việt “Natural” (HoaiMy, NamMinh), nghe liền mạch và tự nhiên hơn.");
 }
 function pickVoice(){var i=parseInt($("voice").value,10);return voices[i]||null}
-if(synth){synth.onvoiceschanged=()=>{if($("ttsEngine").value==="web") loadWebVoices()};}
-
-$("dl_script").onclick = function() {
-    if (!lessons || !lessons.length) return alert("Chưa có bài giảng!");
-    var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(lessons, null, 2));
-    var a = document.createElement('a'); a.href = dataStr; a.download = (docName || "bai-giang") + ".json"; a.click();
-};
-
-$("reset").onclick=function(){stop();lessons=[];$("player").classList.add("hide");$("up").classList.remove("hide");$("prog").classList.add("hide");$("file").value="";$("list").innerHTML="";renderSaved()};
+if(synth){synth.onvoiceschanged=loadVoices;loadVoices()}
 renderSaved();
-window.addEventListener("pagehide",()=>stop());
+window.addEventListener("pagehide",function(){if(synth)synth.cancel()});
 })();
 </script>
 </body>
